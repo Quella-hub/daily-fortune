@@ -38,6 +38,28 @@
     position: relative;
   }
 
+  /* 音效开关 */
+  .sound-toggle {
+    position: absolute;
+    top: 2px;
+    right: 0;
+    z-index: 10;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 1px solid rgba(240,210,138,.4);
+    background: rgba(0,0,0,.25);
+    color: var(--gold-light);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .15s ease, transform .15s ease;
+  }
+  .sound-toggle:hover { background: rgba(0,0,0,.45); transform: scale(1.06); }
+
   /* 顶部 */
   .header {
     text-align: center;
@@ -307,6 +329,7 @@
 </head>
 <body>
   <div class="wrap">
+    <button class="sound-toggle" id="soundToggle" title="音效开关">🔊</button>
     <div class="header">
       <div class="title">每日运势签</div>
       <div class="sub">诚心抽一签 · 解今日吉凶</div>
@@ -367,6 +390,117 @@
 (function () {
   "use strict";
 
+  // ===== 音效系统（Web Audio API 合成，无需外部音频文件）=====
+  const AudioFX = (function () {
+    let ctx = null;
+    let muted = false;
+    let noiseBuf = null;
+
+    function ensure() {
+      if (!ctx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) ctx = new AC();
+      }
+      if (ctx && ctx.state === "suspended") ctx.resume();
+      return ctx;
+    }
+
+    function getNoise() {
+      const c = ensure();
+      if (!c) return null;
+      if (!noiseBuf) {
+        const len = Math.floor(c.sampleRate * 0.08);
+        noiseBuf = c.createBuffer(1, len, c.sampleRate);
+        const data = noiseBuf.getChannelData(0);
+        for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      }
+      return noiseBuf;
+    }
+
+    // 竹签碰撞“咔嗒”声
+    function clack(time, vol) {
+      if (!ctx) return;
+      const src = ctx.createBufferSource();
+      src.buffer = getNoise();
+      const bp = ctx.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.value = 1500 + Math.random() * 2500;
+      bp.Q.value = 1.5;
+      const g = ctx.createGain();
+      const v = vol * (0.5 + Math.random() * 0.5);
+      g.gain.setValueAtTime(v, time);
+      g.gain.exponentialRampToValueAtTime(0.001, time + 0.06);
+      src.connect(bp);
+      bp.connect(g);
+      g.connect(ctx.destination);
+      src.start(time);
+      src.stop(time + 0.07);
+    }
+
+    // 摇签：持续一段时间的连续碰撞声
+    function rattle(duration) {
+      const c = ensure();
+      if (!c || muted) return;
+      const start = c.currentTime + 0.02;
+      for (let t = start; t < start + duration; t += 0.045) {
+        clack(t, 0.5);
+      }
+    }
+
+    // 出签：向上滑音 + 清脆“啪”声
+    function pop() {
+      const c = ensure();
+      if (!c || muted) return;
+      const t = c.currentTime + 0.02;
+      const osc = c.createOscillator();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(280, t);
+      osc.frequency.exponentialRampToValueAtTime(880, t + 0.18);
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.3, t + 0.04);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.24);
+      osc.connect(g);
+      g.connect(c.destination);
+      osc.start(t);
+      osc.stop(t + 0.26);
+      clack(t + 0.04, 0.7);
+    }
+
+    // 揭晓：清脆铃声
+    function chime() {
+      const c = ensure();
+      if (!c || muted) return;
+      const t = c.currentTime + 0.02;
+      [880, 1318.5].forEach(function (freq, i) {
+        const osc = c.createOscillator();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        const g = c.createGain();
+        const st = t + i * 0.12;
+        g.gain.setValueAtTime(0.0001, st);
+        g.gain.exponentialRampToValueAtTime(0.26, st + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, st + 0.9);
+        osc.connect(g);
+        g.connect(c.destination);
+        osc.start(st);
+        osc.stop(st + 1);
+      });
+    }
+
+    return {
+      rattle: rattle,
+      pop: pop,
+      chime: chime,
+      unlock: ensure,
+      toggle: function () {
+        muted = !muted;
+        return muted;
+      },
+      isMuted: function () { return muted; }
+    };
+  })();
+
   // 显示今日日期
   const now = new Date();
   const week = ["日", "一", "二", "三", "四", "五", "六"];
@@ -419,6 +553,8 @@
 
     resetStick();
     tube.classList.add("shaking");
+    AudioFX.unlock();
+    AudioFX.rattle(1.6);
 
     // 摇约 1.6 秒后出签
     setTimeout(() => {
@@ -428,6 +564,7 @@
       stick.style.transition = "none";
       stick.style.animation = "popUp 1.4s cubic-bezier(.2,.8,.3,1.1) forwards";
       void stick.offsetWidth; // 强制重排以重启动画
+      AudioFX.pop();
 
       // 选签并展示结果
       const f = FORTUNES[Math.floor(Math.random() * FORTUNES.length)];
@@ -441,6 +578,7 @@
   }
 
   function showResult(f) {
+    AudioFX.chime();
     pill.textContent = f.level;
     pill.className = "level-pill level-" + f.level;
     poem.textContent = f.poem;
@@ -474,6 +612,13 @@
   drawBtn.addEventListener("click", draw);
   tube.addEventListener("click", draw);
   document.getElementById("againBtn").addEventListener("click", reset);
+
+  const soundToggle = document.getElementById("soundToggle");
+  soundToggle.addEventListener("click", function () {
+    const m = AudioFX.toggle();
+    soundToggle.textContent = m ? "🔇" : "🔊";
+    if (!m) AudioFX.unlock();
+  });
 })();
 </script>
 </body>
