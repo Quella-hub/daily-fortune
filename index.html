@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>每日运势签 · 抽签占卜</title>
+<style>
+  :root {
+    --gold: #d4a44a;
+    --gold-light: #f0d28a;
+    --red: #8c1f1f;
+    --red-dark: #5c1212;
+    --paper: #f7efe0;
+    --paper-dark: #eadfc6;
+    --ink: #3a2a1a;
+    --ink-soft: #6b5438;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "PingFang SC", "Microsoft YaHei", "Noto Serif SC", "Songti SC", serif;
+    background:
+      radial-gradient(1200px 700px at 50% -10%, rgba(212,164,74,.18), transparent 60%),
+      linear-gradient(160deg, #2a0f0f 0%, #4a1616 45%, #2a0f0f 100%);
+    color: var(--ink);
+    padding: 24px;
+    overflow-x: hidden;
+  }
+
+  .wrap {
+    width: 100%;
+    max-width: 460px;
+    position: relative;
+  }
+
+  /* 顶部 */
+  .header {
+    text-align: center;
+    color: var(--gold-light);
+    margin-bottom: 20px;
+  }
+  .header .title {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: 8px;
+    text-shadow: 0 2px 8px rgba(0,0,0,.5);
+  }
+  .header .sub {
+    font-size: 12px;
+    letter-spacing: 4px;
+    color: rgba(240,210,138,.7);
+    margin-top: 6px;
+  }
+
+  /* 卡片主体 */
+  .card {
+    background: linear-gradient(180deg, var(--paper) 0%, var(--paper-dark) 100%);
+    border-radius: 18px;
+    padding: 28px 26px 24px;
+    box-shadow:
+      0 24px 60px rgba(0,0,0,.5),
+      inset 0 0 0 2px rgba(212,164,74,.35),
+      inset 0 0 0 6px rgba(255,255,255,.12);
+    position: relative;
+  }
+  .card::before {
+    content: "";
+    position: absolute;
+    inset: 10px;
+    border: 1px dashed rgba(107,84,56,.25);
+    border-radius: 10px;
+    pointer-events: none;
+  }
+
+  /* 签筒区域 */
+  .stage {
+    text-align: center;
+    position: relative;
+    min-height: 280px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .tube-wrap { position: relative; }
+
+  .tube {
+    width: 130px;
+    height: 200px;
+    background: linear-gradient(90deg, #8a3b1f 0%, #b05a2e 20%, #c76b38 50%, #b05a2e 80%, #8a3b1f 100%);
+    border-radius: 14px 14px 22px 22px;
+    position: relative;
+    box-shadow: 0 10px 24px rgba(0,0,0,.4), inset 0 -8px 14px rgba(0,0,0,.35);
+    cursor: pointer;
+    transition: transform .15s ease;
+  }
+  .tube:hover { transform: translateY(-3px); }
+  .tube .rim {
+    position: absolute;
+    top: -8px; left: -6px; right: -6px;
+    height: 20px;
+    background: linear-gradient(180deg, #d4a44a, #9a6f2a);
+    border-radius: 8px;
+    box-shadow: 0 3px 8px rgba(0,0,0,.35);
+  }
+  .tube .glyph {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #f3d9a4;
+    font-size: 44px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    writing-mode: vertical-rl;
+    text-shadow: 0 2px 4px rgba(0,0,0,.5);
+  }
+
+  /* 签条从筒里弹出 */
+  .stick {
+    position: absolute;
+    bottom: 60px;
+    left: 50%;
+    width: 26px;
+    height: 150px;
+    margin-left: -13px;
+    background: linear-gradient(180deg, #f3d9a4, #e7c07a);
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0,0,0,.35);
+    opacity: 0;
+    transform: translateY(40px) rotate(0deg);
+    pointer-events: none;
+  }
+  .stick .tip {
+    position: absolute;
+    top: -6px; left: 2px; right: 2px;
+    height: 16px;
+    background: #c0392b;
+    border-radius: 6px;
+  }
+  .stick .stext {
+    position: absolute;
+    inset: 16px 0 0 0;
+    writing-mode: vertical-rl;
+    text-align: center;
+    color: #7a3b1a;
+    font-size: 15px;
+    letter-spacing: 2px;
+    font-weight: 700;
+  }
+
+  /* 摇动动画 */
+  @keyframes shake {
+    0% { transform: rotate(0deg) translate(0,0); }
+    15% { transform: rotate(-9deg) translate(-4px,0); }
+    30% { transform: rotate(8deg) translate(4px,-2px); }
+    45% { transform: rotate(-7deg) translate(-3px,1px); }
+    60% { transform: rotate(6deg) translate(3px,0); }
+    75% { transform: rotate(-4deg) translate(-2px,0); }
+    90% { transform: rotate(2deg) translate(1px,0); }
+    100% { transform: rotate(0deg) translate(0,0); }
+  }
+  .tube.shaking { animation: shake .6s ease-in-out infinite; }
+
+  @keyframes popUp {
+    0% { opacity: 0; transform: translateY(50px) scale(.8); }
+    60% { opacity: 1; transform: translateY(-120px) scale(1); }
+    100% { opacity: 1; transform: translateY(-110px) scale(1); }
+  }
+
+  .hint {
+    margin-top: 16px;
+    color: var(--ink-soft);
+    font-size: 14px;
+    letter-spacing: 2px;
+  }
+  .btn {
+    margin-top: 14px;
+    padding: 12px 34px;
+    font-size: 17px;
+    letter-spacing: 6px;
+    color: #fff;
+    background: linear-gradient(180deg, #b03a2e, #7c1f1f);
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.25);
+    transition: transform .12s ease, box-shadow .12s ease;
+    font-family: inherit;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 9px 20px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.25); }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+
+  /* 结果区 */
+  .result { display: none; }
+  .result.show { display: block; animation: fadeUp .5s ease; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+  .level-badge {
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .level-pill {
+    display: inline-block;
+    padding: 8px 26px;
+    border-radius: 30px;
+    color: #fff;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 5px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.3);
+  }
+  .level-上上签 { background: linear-gradient(180deg, #e6a23c, #c9861a); }
+  .level-上签 { background: linear-gradient(180deg, #d4762e, #b05a1a); }
+  .level-中签 { background: linear-gradient(180deg, #6b8e6b, #4c6b4c); }
+  .level-下签 { background: linear-gradient(180deg, #5a7a9a, #3d5a76); }
+  .level-下下签 { background: linear-gradient(180deg, #6a5a7a, #4a3d5a); }
+
+  .result .poem {
+    text-align: center;
+    font-size: 19px;
+    line-height: 2;
+    letter-spacing: 3px;
+    color: var(--ink);
+    margin: 14px 0 6px;
+    font-weight: 600;
+  }
+  .result .interp {
+    text-align: center;
+    font-size: 14px;
+    line-height: 1.9;
+    color: var(--ink-soft);
+    padding: 0 6px;
+  }
+
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(107,84,56,.4), transparent);
+    margin: 18px 0;
+  }
+
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .meta {
+    background: rgba(255,255,255,.45);
+    border: 1px solid rgba(212,164,74,.4);
+    border-radius: 12px;
+    padding: 10px 12px;
+    text-align: center;
+  }
+  .meta .k { font-size: 12px; color: var(--ink-soft); letter-spacing: 2px; }
+  .meta .v { font-size: 18px; font-weight: 700; color: var(--red); margin-top: 2px; }
+
+  .do-dont {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .box { border-radius: 12px; padding: 12px 14px; }
+  .box.yi { background: rgba(198,120,40,.1); border: 1px solid rgba(198,120,40,.35); }
+  .box.ji { background: rgba(90,122,154,.12); border: 1px solid rgba(90,122,154,.35); }
+  .box .k { font-size: 14px; font-weight: 700; letter-spacing: 3px; }
+  .box.yi .k { color: #b05a1a; }
+  .box.ji .k { color: #3d5a76; }
+  .box .v { font-size: 14px; color: var(--ink-soft); margin-top: 4px; line-height: 1.7; }
+
+  .again {
+    margin-top: 22px;
+    text-align: center;
+  }
+  .btn-ghost {
+    background: none;
+    border: 1px solid var(--red);
+    color: var(--red);
+    padding: 10px 30px;
+    border-radius: 30px;
+    font-size: 15px;
+    letter-spacing: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background .15s ease, color .15s ease;
+  }
+  .btn-ghost:hover { background: var(--red); color: #fff; }
+
+  .footer {
+    text-align: center;
+    margin-top: 22px;
+    color: rgba(240,210,138,.55);
+    font-size: 12px;
+    letter-spacing: 1px;
+    line-height: 1.9;
+  }
+  .footer .date { color: rgba(240,210,138,.8); letter-spacing: 2px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <div class="title">每日运势签</div>
+      <div class="sub">诚心抽一签 · 解今日吉凶</div>
+    </div>
+
+    <div class="card">
+      <!-- 抽签阶段 -->
+      <div class="stage" id="stage">
+        <div class="tube-wrap">
+          <div class="tube" id="tube">
+            <div class="rim"></div>
+            <div class="glyph">签</div>
+          </div>
+          <div class="stick" id="stick">
+            <div class="tip"></div>
+            <div class="stext">运势</div>
+          </div>
+        </div>
+        <div class="hint" id="hint">点击签筒，摇出你今日的运势</div>
+        <button class="btn" id="drawBtn">开始抽签</button>
+      </div>
+
+      <!-- 结果阶段 -->
+      <div class="result" id="result">
+        <div class="level-badge">
+          <span class="level-pill" id="levelPill"></span>
+        </div>
+        <div class="poem" id="poem"></div>
+        <div class="interp" id="interp"></div>
+
+        <div class="divider"></div>
+
+        <div class="meta-grid">
+          <div class="meta"><div class="k">幸运数字</div><div class="v" id="mNum"></div></div>
+          <div class="meta"><div class="k">幸运颜色</div><div class="v" id="mColor"></div></div>
+          <div class="meta"><div class="k">幸运方位</div><div class="v" id="mDir"></div></div>
+          <div class="meta"><div class="k">今日运势</div><div class="v" id="mStar"></div></div>
+        </div>
+
+        <div class="do-dont">
+          <div class="box yi"><div class="k">宜</div><div class="v" id="mYi"></div></div>
+          <div class="box ji"><div class="k">忌</div><div class="v" id="mJi"></div></div>
+        </div>
+
+        <div class="again">
+          <button class="btn-ghost" id="againBtn">再抽一签</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="date" id="dateText"></div>
+      仅供娱乐 · 无任何科学依据，请理性看待
+    </div>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  // 显示今日日期
+  const now = new Date();
+  const week = ["日", "一", "二", "三", "四", "五", "六"];
+  document.getElementById("dateText").textContent =
+    now.getFullYear() + " 年 " + (now.getMonth() + 1) + " 月 " + now.getDate() +
+    " 日 · 星期" + week[now.getDay()];
+
+  // 签文库：不同签级，各含签文/解签/幸运数字/颜色/方位/宜忌
+  const FORTUNES = [
+    { level: "上上签", poem: "旭日东升照万里，紫气东来福满庭。", interp: "今日运势极佳，如旭日初升，诸事顺遂。贵人相助，心想事成，宜大胆进取。", num: 9, color: "金色", dir: "东南", star: "★★★★★", yi: "出行、谈合作、表白心意", ji: "迟疑不决、与人争辩" },
+    { level: "上签", poem: "春风拂面柳含烟，好运临门喜事连。", interp: "运势上扬，和气生财。此前搁置之事今日或见转机，把握良机，勤勉可得回报。", num: 6, color: "绿色", dir: "正东", star: "★★★★☆", yi: "求职面试、理财规划、拜访长辈", ji: "急躁冲动、熬夜" },
+    { level: "中签", poem: "云卷云舒自有定，静待花开又一程。", interp: "运势平稳，宜守不宜攻。今日以稳为主，踏实做事，静候时机，不宜强求。", num: 3, color: "蓝色", dir: "正南", star: "★★★☆☆", yi: "学习充电、整理内务、锻炼身体", ji: "贸然投资、做重大决定" },
+    { level: "中签", poem: "山重水复疑无路，柳暗花明又一村。", interp: "看似困顿，实则转机暗藏。遇事莫灰心，多一分耐心，或能豁然开朗。", num: 5, color: "白色", dir: "西南", star: "★★★☆☆", yi: "静心思考、寻求帮助、复盘总结", ji: "半途而废、钻牛角尖" },
+    { level: "下签", poem: "风雨潇潇路难行，谨慎行事保安宁。", interp: "今日运势略低，宜低调行事。遇事多留三分余地，避免口舌之争，平安即是福。", num: 2, color: "黑色", dir: "西北", star: "★★☆☆☆", yi: "修身养性、低调做事、与人为善", ji: "冲动消费、逞强出头" },
+    { level: "下下签", poem: "乌云蔽日暂遮光，守得云开见月明。", interp: "运势暂处低谷，诸事不宜操之过急。今日宜静不宜动，安守本分，待云开雾散，自有转机。", num: 1, color: "灰色", dir: "正北", star: "★☆☆☆☆", yi: "休息调整、反省自身、养精蓄锐", ji: "大额开支、争执、远行" }
+  ];
+
+  const stage = document.getElementById("stage");
+  const result = document.getElementById("result");
+  const tube = document.getElementById("tube");
+  const stick = document.getElementById("stick");
+  const hint = document.getElementById("hint");
+  const drawBtn = document.getElementById("drawBtn");
+
+  const pill = document.getElementById("levelPill");
+  const poem = document.getElementById("poem");
+  const interp = document.getElementById("interp");
+  const mNum = document.getElementById("mNum");
+  const mColor = document.getElementById("mColor");
+  const mDir = document.getElementById("mDir");
+  const mStar = document.getElementById("mStar");
+  const mYi = document.getElementById("mYi");
+  const mJi = document.getElementById("mJi");
+
+  let busy = false;
+
+  function resetStick() {
+    stick.style.transition = "none";
+    stick.style.animation = "none";
+    stick.style.opacity = "0";
+    stick.style.transform = "translateY(40px)";
+  }
+
+  function draw() {
+    if (busy) return;
+    busy = true;
+    drawBtn.disabled = true;
+    tube.style.pointerEvents = "none";
+    hint.textContent = "摇签中，请稍候…";
+
+    resetStick();
+    tube.classList.add("shaking");
+
+    // 摇约 1.6 秒后出签
+    setTimeout(() => {
+      tube.classList.remove("shaking");
+
+      // 弹出签条
+      stick.style.transition = "none";
+      stick.style.animation = "popUp 1.4s cubic-bezier(.2,.8,.3,1.1) forwards";
+      void stick.offsetWidth; // 强制重排以重启动画
+
+      // 选签并展示结果
+      const f = FORTUNES[Math.floor(Math.random() * FORTUNES.length)];
+      hint.textContent = "抽到了第 " + (f.num + 2) + " 签";
+
+      setTimeout(() => {
+        showResult(f);
+      }, 1400);
+
+    }, 1600);
+  }
+
+  function showResult(f) {
+    pill.textContent = f.level;
+    pill.className = "level-pill level-" + f.level;
+    poem.textContent = f.poem;
+    interp.textContent = f.interp;
+    mNum.textContent = f.num;
+    mColor.textContent = f.color;
+    mDir.textContent = f.dir;
+    mStar.textContent = f.star;
+    mYi.textContent = f.yi;
+    mJi.textContent = f.ji;
+
+    stage.style.display = "none";
+    result.classList.remove("show");
+    void result.offsetWidth;
+    result.classList.add("show");
+
+    busy = false;
+  }
+
+  function reset() {
+    result.classList.remove("show");
+    result.style.display = "none";
+    stage.style.display = "flex";
+    tube.style.pointerEvents = "";
+    drawBtn.disabled = false;
+    hint.textContent = "点击签筒，摇出你今日的运势";
+    resetStick();
+    busy = false;
+  }
+
+  drawBtn.addEventListener("click", draw);
+  tube.addEventListener("click", draw);
+  document.getElementById("againBtn").addEventListener("click", reset);
+})();
+</script>
+</body>
+</html>
